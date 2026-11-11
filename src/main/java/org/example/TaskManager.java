@@ -18,7 +18,7 @@ public class TaskManager {
     private final Pattern pattern;
     private final ThreadGroup group = new ThreadGroup("FileSearch");
     private final ThreadFactory factory;
-    private final List<Thread> threads = new ArrayList<>();   // все созданные потоки
+    private final List<Thread> threads = new ArrayList<>();
     private final AtomicInteger filesProcessed = new AtomicInteger();
     private final AtomicInteger totalMatches = new AtomicInteger();
 
@@ -26,7 +26,6 @@ public class TaskManager {
         this.root = Paths.get(rootDir);
         this.pattern = Pattern.compile(regex);
         AtomicInteger id = new AtomicInteger(1);
-        // собственная фабрика: единая группа + уникальные имена
         this.factory = r -> new Thread(group, r, "FileSearch-" + id.getAndIncrement());
     }
 
@@ -34,13 +33,12 @@ public class TaskManager {
         System.out.println("Starting search in: " + root);
         System.out.println("Search pattern: " + pattern);
 
-        // 1) рекурсивный обход, по потоку на каждый обычный файл
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
                     if (Thread.currentThread().isInterrupted()) {
-                        return FileVisitResult.TERMINATE;       // main прервали — прекращаем обход
+                        return FileVisitResult.TERMINATE;
                     }
                     if (attrs.isRegularFile()) {
                         Thread t = factory.newThread(() -> searchFile(file));
@@ -53,14 +51,13 @@ public class TaskManager {
                 @Override
                 public FileVisitResult visitFileFailed(Path file, IOException exc) {
                     System.err.println("Cannot access " + file + ": " + exc.getMessage());
-                    return FileVisitResult.CONTINUE;            // нет доступа — идём дальше
+                    return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
             System.err.println("Directory traversal failed: " + e.getMessage());
         }
 
-        // 2) ждём все потоки; если прервали main — прерываем и воркеров
         try {
             joinAll();
         } catch (InterruptedException e) {
@@ -73,7 +70,6 @@ public class TaskManager {
             }
         }
 
-        // 3) финальное сообщение — только после join() всех потоков
         System.out.println("Search completed!");
         System.out.println("Files processed: " + filesProcessed.get());
         System.out.println("Total matches: " + totalMatches.get());
@@ -83,7 +79,6 @@ public class TaskManager {
         for (Thread t : threads) t.join();
     }
 
-    /** Работа потока: поиск по содержимому одного файла. */
     private void searchFile(Path file) {
         String name = Thread.currentThread().getName();
         System.out.println("[" + name + "] Searching in file: " + file.getFileName());
@@ -92,21 +87,21 @@ public class TaskManager {
             String line;
             int lineNo = 0;
             while ((line = reader.readLine()) != null) {
-                if (Thread.currentThread().isInterrupted()) {      // реакция на отмену
+                if (Thread.currentThread().isInterrupted()) {
                     System.out.println("[" + name + "] Cancelled: " + file.getFileName());
                     return;
                 }
                 lineNo++;
-                Matcher m = pattern.matcher(line);                 // Matcher — свой у каждого потока
+                Matcher m = pattern.matcher(line);
                 int inLine = 0;
-                while (m.find()) inLine++;                         // все вхождения в строке
+                while (m.find()) inLine++;
                 if (inLine > 0) {
                     matches += inLine;
                     System.out.println("[" + name + "] Match found (" + file.getFileName()
                             + ":" + lineNo + "): " + line.trim());
                 }
             }
-        } catch (IOException e) {   // нет доступа, бинарный файл (MalformedInputException) и т. п.
+        } catch (IOException e) {
             System.err.println("[" + name + "] Cannot read " + file + ": " + e);
         } finally {
             filesProcessed.incrementAndGet();

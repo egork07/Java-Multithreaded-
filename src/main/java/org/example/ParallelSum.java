@@ -18,7 +18,8 @@ public class ParallelSum {
         @Override
         public void run() {
             long s = 0;
-            for (int i = from; i < to; i++) s += data[i];
+            for (int i = from; i < to; i++)
+                s += data[i];
             partialSum = s;
         }
 

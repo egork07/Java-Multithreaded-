@@ -68,7 +68,7 @@ public class DownloadCancellation {
     static void runScenario(Runnable task, String name) throws InterruptedException {
         Thread worker = new Thread(task, name);
         worker.start();
-        Thread.sleep(3200);                       // «пользователь нажал Cancel» через 3,2 с
+        Thread.sleep(3200);
         System.out.println("[Main] Cancel requested");
         worker.interrupt();
         worker.join();
