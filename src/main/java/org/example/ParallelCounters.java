@@ -13,8 +13,13 @@ public class ParallelCounters {
         }
 
         @Override
-        public void run() {
-            int step = from <= to ? 1 : -1;
+        public void run() { int step;
+            if (from <= to) {
+                step = 1;
+            } else {
+                step = -1;
+            }
+
             for (int i = from; i != to + step; i += step) {
                 System.out.println(getName() + ": " + i);
                 try {
